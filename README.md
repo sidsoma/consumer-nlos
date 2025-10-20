@@ -1,9 +1,16 @@
 # Imaging Hidden Objects with Consumer LiDAR
 
+After cloning the repository, install all dependencies by running the following text block.
+
+```cd consumer-nlos
+conda create --name consumer-nlos python=3.8 
+conda activate consumer-nlos
+pip install -r requirements.txt```
+
 
 To run the tracking algorithm on data captured with a ST VL853L8 device, run the following python command. 
 
-python main.py
+`python main.py`
 
 The captured data is in the directory captured_data/st_spad_person_tracking. The script is performing tracking 
 using the proposed particle filtering formulation with the motion-induced aperture sampling (MAS) model. The parameters of the particle filtering algorithm and the dataset are specified in config.yaml. 

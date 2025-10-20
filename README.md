@@ -17,7 +17,7 @@ We provide sample data in the folder captured data/st_spad_person_tracking to te
 
 
 
-## Running the script
+### Running the script
 
 
 The script is performing tracking using the proposed particle filtering formulation with the motion-induced aperture sampling (MAS) model. The parameters of the particle filtering algorithm and the dataset are specified in `config.yaml`. To run the code, execute the following python command. 

@@ -6,6 +6,5 @@ pyyaml
 opencv-python
 matplotlib
 seaborn
-importlib
 glob
 warnings

@@ -33,7 +33,7 @@ in `/results/reconstructed_frames`. This output should match the result shown in
 "Plug-and-Play NLOS" result shown in the supplementary video.
 
 While the particle filtering code is fast, the code to compute and plot the kernal density estimation (KDE) of the particles is slow, 
-therefore we just plot the particles in the position. If you wish to visualize the code with the KDE (similar to the result visualization), go to config.yaml and toggle `plot_KDE: True`. 
+therefore we just plot the particles in the position. If you wish to visualize the code with the KDE (similar to the result visualization), go to `config.yaml` and toggle `plot_KDE: True`. 
 
 
 

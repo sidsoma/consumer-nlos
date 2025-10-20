@@ -5,7 +5,8 @@ After cloning the repository, install all dependencies by running the following 
 ```cd consumer-nlos
 conda create --name consumer-nlos python=3.8 
 conda activate consumer-nlos
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 
 
 To run the tracking algorithm on data captured with a ST VL853L8 device, run the following python command. 

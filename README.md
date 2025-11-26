@@ -23,17 +23,18 @@ We provide sample data in the folder captured data/st_spad_person_tracking to te
 The script is performing tracking using the proposed particle filtering formulation with the motion-induced aperture sampling (MAS) model. The parameters of the particle filtering algorithm and the dataset are specified in `config.yaml`. To run the code, execute the following python command. 
 
 ```
-python main.py
+python tracking.py
+```
+
+or 
+
+```
+python cam_localization.py
 ```
 
 
+The outputs of this algorithms will be stored in `/results/`. 
 
-The outputs of this algorithms will be stored in `/results/tracking_result.mp4`. The individual frames are also available
-in `/results/reconstructed_frames`. This output should match the result shown in Fig. 3 of the Supplementary Material and the 
-"Plug-and-Play NLOS" result shown in the supplementary video.
-
-While the particle filtering code is fast, the code to compute and plot the kernal density estimation (KDE) of the particles is slow, 
-therefore we just plot the particles in the position. If you wish to visualize the code with the KDE (similar to the result visualization), go to `config.yaml` and toggle `plot_KDE: True`. 
 
 
 

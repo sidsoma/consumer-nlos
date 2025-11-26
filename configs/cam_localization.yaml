@@ -1,0 +1,53 @@
+# === Data parameters === #
+# dataset directory 
+data_dir      : 'captured_data'
+capture_name  : 'st_spad_cam_localization'
+
+# properties of capture setup and hidden scene
+cam_tracking  : True # set to True for object tracking
+isDiffuse     : False # set to False for retroreflective objects
+
+# specify canonical measurement
+canons: # list of canonical measurements (also specifies number of tracked objects)
+    - 'canons/point.npy'
+load_voxel_from_file: False # set to True for faster loading of voxelized canonical measurements
+
+# === camera parameters === #
+t_res: 250.0E-12
+
+# === particle filtering parameters === #
+particle:
+    # initialized volume
+    vol_center: [-0.75, 0, 1]
+    vol_size: 2
+    num_particles: 1000
+
+    # motion model parameters
+    motion_model: 'RandomWalk'
+    radius: 0.07
+
+    # resampling function 
+    resample_fn: 'residual'
+
+    # score function
+    score_fn: 'dot_product_score'
+
+    # forward pass parameters
+    batch_size: 5000
+
+    # prior-data model weight (hyperparameter)
+    eta: 3
+
+
+# === light-cone transform parameters === #
+num_lct_bins: 128
+
+# === voxelized canonical measurement parameters === #
+canon_voxel:
+    x_min: -3
+    x_max: 3
+    num_x: 300
+
+    y_min: -3
+    y_max: 3
+    num_y: 300

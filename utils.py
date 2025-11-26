@@ -294,135 +294,112 @@ def convert_particles_to_image(particles : List[np.array], cam_pos : np.array, p
     return imgs
 
 
+def plot_cam_localization(particles : List[np.array], obj_pos : np.array, pt_clouds : np.array):
+    """
+    Plot camera localization results.
 
-# def convert_particles_to_image(particles : List[np.array], 
-#                                scores : List[np.array],
-#                                vol_center : list, 
-#                                vol_size : float,
-#                                gt_pos : List[np.array] = None, 
-#                         ):
-#     """
-#     Plot particle locations and save figures as image arrays.
+    Parameters:
+    -----------
+    particles : list of particle locations, each entry contains (num_particles, 3*num_objects)
+    obj_pos : position of the object
+    pt_clouds : point cloud
 
-#     Parameters:
-#     -----------
-#     particles  : list of particle locations, each entry contains (num_particles, 3*num_objects)
-#     gt_pos     : list containing ground truth position of each object, 
-#                     each entry has shape (num_frames, 3)
-#     vol_center : center of the volume
-#     vol_size   : size of the volume
+    Returns:
+    --------
+    imgs : list of image arrays of length num_frames
+    """
+    num_frames = len(particles)
 
-#     Returns:
-#     --------
-#     imgs : list of image arrays of length num_frames
-#     """
-#     num_objects = particles[0].shape[1] // 3
+    xlims = [[-0.5, 1.5], [-0.5, 1.5]]
+    ylims = [[-1, 1], [-0.1, 1.9]]
+    titles = ['Front View', 'Top View']
+    y_label = ['Y (m)', 'Z (m)', ]
+    fontsize = 25
+    title_fontsize = 30
+    occluder_x = 0.25
+    occluder_y_mins = [-1.5, 0.45]; occluder_y_maxs = [1.5, 1.6]
 
-#     # === Extract particle bounds === #
-#     x_min = vol_center[0] - vol_size / 2
-#     x_max = vol_center[0] + vol_size / 2
-#     y_min = vol_center[1] - vol_size / 2
-#     y_max = vol_center[1] + vol_size / 2
-#     z_min = vol_center[2] - vol_size / 2
-#     z_max = vol_center[2] + vol_size / 2
+    imgs = []
+    for frame_num in tqdm(range(num_frames), "Creating plots"):
+        # === Create scatter plot using seaborn === #
+        fig = plt.figure(figsize=(20, 10))
+        plt.suptitle(f'Frame {frame_num+1}', fontsize=title_fontsize)
 
-#     # === Compute images === #
-#     imgs = []
-#     num_frames = len(particles)
-#     est_traj = np.zeros((num_frames, 3*num_objects))
-#     for i in tqdm(range(num_frames), desc="Creating plots"):
-#         # === Extract mean location === #
-#         pred_loc = np.mean(particles[i], axis=0) # (3*num_objects,)
-#         # pred_loc = particles[i][np.argmax(scores[i])] # (3*num_objects,)
-#         est_traj[i] = pred_loc
+        for i in range(2):
+            plt.subplot(1, 2, i+1)
+            plt.grid(True)
+            plt.xlim(xlims[i])
+            plt.ylim(ylims[i])
 
-#         # === Create figure for (i+1)-th frame === #
-#         num_rows = num_objects
-#         num_cols = 3
-#         plot_height = 5
-#         fig = plt.figure(figsize=(plot_height * num_cols / num_rows, plot_height))
-#         plt.suptitle(f'Frame {i+1}')
+            # === Set font to be times new roman === #
+            plt.rcParams.update({'font.family': 'Times New Roman'})
 
-#         idx = 1
-#         for j in range(num_objects):
-#             # === Plot x-y projection === #
-#             plt.subplot(num_rows, num_cols, idx); idx += 1
-#             plt.plot(particles[i][:, 3*j], particles[i][:, 3*j+1], 'o')
-#             plt.xlim([x_min, x_max])
-#             plt.ylim([y_min, y_max])
-#             plt.gca().set_aspect('equal', adjustable='box')
-#             plt.xlabel('X')
-#             plt.ylabel('Y')
-#             plt.gca().invert_xaxis()
+            # === plot particles as KDE === #
+            # y_particles = particles[frame_num][:, i+1]
+            # if i == 1:
+            #     y_particles += np.random.normal(0, 0.01, y_particles.shape)
 
-#             # plt.plot(gt_pos[j][i, 0], gt_pos[j][i, 1], 'go', ms=10) #  plot gt position
-#             # plt.plot(gt_pos[:i+1, 0], gt_pos[:i+1, 1], 'g-')
-#             if gt_pos is not None:
-#                 plt.plot(gt_pos[j][:, 0], gt_pos[j][:, 1], 'g-') # plot gt trajectory
+            # sns.kdeplot(x=particles[frame_num][:, 0], 
+            #             y=y_particles,
+            #             alpha=1, fill=True, cmap='hot')
 
+            # plot particles as points
+            plt.plot(particles[frame_num][:, 0], particles[frame_num][:, i+1], 'o', alpha=1)
 
-#             plt.plot(pred_loc[3*j], pred_loc[3*j+1], 'ro', ms=10) # plot estimated position
-#             plt.plot(est_traj[:i+1, 3*j], est_traj[:i+1, 3*j+1], 'r-') # plot estimated trajectory
+            # plot mean of particles 
+            mean_pos = np.mean(particles[frame_num], axis=0)
+            plt.plot(mean_pos[0], mean_pos[i+1], 'o', color='red', markersize=10)
 
-#             # === Plot x-z projection === #
-#             plt.subplot(num_rows, num_cols, idx); idx += 1
-#             plt.plot(particles[i][:, 3*j], particles[i][:, 3*j+2], 'o')
-#             plt.xlim([x_min, x_max])
-#             plt.ylim([z_min, z_max])
-#             plt.gca().set_aspect('equal', adjustable='box')
-#             plt.xlabel('X')
-#             plt.ylabel('Z')
-#             plt.gca().invert_xaxis()
+            # === plot GT obj position === #
+            patch_width = 0.25
+            rect = plt.Rectangle((obj_pos[0] - patch_width/2, obj_pos[i+1] - patch_width/2), 
+                                patch_width, patch_width, 
+                                fill=True, 
+                                color='gray', 
+                                linewidth=0)
+            plt.gca().add_patch(rect)
 
-#             if gt_pos is not None:
-#                 # plt.plot(gt_pos[j][i, 0], gt_pos[j][i, 2], 'go', ms=10) #  plot gt position
-#                 # plt.plot(gt_pos[:i+1, 0], gt_pos[:i+1, 2], 'g-')
-#                 plt.plot(gt_pos[j][:, 0], gt_pos[j][:, 2], 'g-') # plot gt trajectory
+            # === plot occluder === #
+            plt.vlines(occluder_x, occluder_y_mins[i], occluder_y_maxs[i], color='black', linewidth=6)
 
-#             plt.plot(pred_loc[3*j], pred_loc[3*j+2], 'ro', ms=10) # plot estimated position
-#             plt.plot(est_traj[:i+1, 3*j], est_traj[:i+1, 3*j+2], 'r-') # plot estimated trajectory
+            # === draw planar rectangle centered at z = 0 === #
+            if i == 1:
+                rect = plt.Rectangle((-2, -0.1), 20, 0.1, fill=True, color='k', linewidth=3)
+                plt.gca().add_patch(rect)
 
-#             # === Create plot title === #
-#             plt.title(f'Object {j+1} Positions', fontweight='bold')
+            # === Invert axes to match previous plot === #
+            # plt.gca().invert_xaxis()
+            if i == 1:
+                plt.gca().invert_yaxis()
 
-#             # === Plot y-z projection === #
-#             plt.subplot(num_rows, num_cols, idx); idx += 1
-#             plt.plot(particles[i][:, 3*j+1], particles[i][:, 3*j+2], 'o')
-#             plt.xlim([y_min, y_max])
-#             plt.ylim([z_min, z_max])
-#             plt.gca().set_aspect('equal', adjustable='box')
-#             plt.xlabel('Y')
-#             plt.ylabel('Z')
+            # === Set title, xlabel, ylabel === #
+            plt.title(titles[i], fontsize=title_fontsize)
+            plt.xlabel('X (m)', fontsize=fontsize)
+            plt.ylabel(y_label[i], fontsize=fontsize)
 
-#             if gt_pos is not None:
-#                 # plt.plot(gt_pos[j][i, 1], gt_pos[j][i, 2], 'go', ms=10) # plot gt position
-#                 # plt.plot(gt_pos[:i+1, 1], gt_pos[:i+1, 2], 'g-') # plot gt trajectory
-#                 plt.plot(gt_pos[j][:, 1], gt_pos[j][:, 2], 'g-') # plot gt trajectory
+            # === increase tick font size === #
+            plt.tick_params(axis='both', which='major', labelsize=fontsize)
 
-#             plt.plot(pred_loc[3*j+1], pred_loc[3*j+2], 'ro', ms=10) # plot estimated position
-#             plt.plot(est_traj[:i+1, 3*j+1], est_traj[:i+1, 3*j+2], 'r-') # plot estimated trajectory
-
-#         # === Set plot spacing === #
-#         plt.tight_layout()
+            # === Set plot spacing === #
+            plt.tight_layout()
         
-#         # === Extract plot as array === #
-#         fig.canvas.draw()
-#         rgba_buf = fig.canvas.buffer_rgba()
-#         (w, h) = fig.canvas.get_width_height()
+        # === Extract plot as array === #
+        fig.canvas.draw()
+        rgba_buf = fig.canvas.buffer_rgba()
+        (w, h) = fig.canvas.get_width_height()
         
-#         rgba_arr = np.frombuffer(rgba_buf, dtype=np.uint8)
+        rgba_arr = np.frombuffer(rgba_buf, dtype=np.uint8)
         
-#         if reduce(operator.mul, rgba_arr.shape) == 16*h*w:
-#             rgba_arr = rgba_arr.reshape((2*h, 2*w, 4))
-#         else:
-#             rgba_arr = rgba_arr.reshape((h, w, 4))
+        if reduce(operator.mul, rgba_arr.shape) == 16*h*w:
+            rgba_arr = rgba_arr.reshape((2*h, 2*w, 4))
+        else:
+            rgba_arr = rgba_arr.reshape((h, w, 4))
 
-#         # === Convert rgba_arr to bgr === #
-#         bgr_arr = rgba_arr[:, :, [2, 1, 0, 3]][..., :3]
+        # === Convert rgba_arr to bgr === #
+        bgr_arr = rgba_arr[:, :, [2, 1, 0, 3]][..., :3]
 
-#         # === Save image and close plot === #
-#         imgs.append(bgr_arr)
-#         plt.close()
-    
-#     return imgs
+        # === Save image and close plot === #
+        imgs.append(bgr_arr)
+        plt.close()
 
+    return imgs

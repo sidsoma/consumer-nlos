@@ -5,7 +5,7 @@ from typing import Tuple, List
 from tqdm import tqdm 
 from data.process import transform_measurements
 
-def load_data(data_dir : str) -> Tuple[List[np.array], List[np.array]]:
+def load_data(data_dir : str, cam_track : bool = False) -> Tuple[List[np.array], List[np.array]]:
     """
     Load data captured with ST VL853L8 device from directory. This dataloader
     assumes that the data is already processed, where the 1-bounce light is
@@ -16,6 +16,7 @@ def load_data(data_dir : str) -> Tuple[List[np.array], List[np.array]]:
     Parameters:
     -----------
     data_dir : directory containing data
+    cam_track : toggle True if doing camera localization
 
     Returns:
     --------
@@ -26,13 +27,18 @@ def load_data(data_dir : str) -> Tuple[List[np.array], List[np.array]]:
 
     filenames = sorted(glob(os.path.join(data_dir, '*.npz')))
 
-    particles = []; hists = []; pt_clouds = []
+    particles = []; hists = []; pt_clouds = []; cam_z = []
     for filename in filenames:
         data = np.load(filename)
         hists.append(data['hists'].reshape(4, 4, -1)) # (num_pixels, num_bins)
         pt_clouds.append(data['pt_cloud'].reshape(4, 4, -1)) # (num_pixels, 3)
-
-    return hists, pt_clouds
+        if cam_track:
+            cam_z.append(data['cam_z'])
+        
+    if cam_track:
+        return hists, pt_clouds, cam_z
+    else:
+        return hists, pt_clouds
 
 def compute_lct(hists_crop: List[np.array], 
                 isDiffuse=False,

@@ -5,6 +5,7 @@ import numpy as np
 from utils import get_all_subclasses
 from train.canon import FastSumOfParabolas
 from typing import List
+import warnings
 
 TRAIN_Z = True 
 Z_VAL = 0.66 
@@ -20,7 +21,7 @@ class Particle(nn.Module):
     arbitrary number of objects for object tracking, but only one object for 
     camera tracking.
     """
-    def __init__(self, configs, num_objects, device):
+    def __init__(self, configs, num_objects, device, obj_z=None):
         particle_configs = configs['particle']
 
         # === Extract number of objects being tracked === #
@@ -29,8 +30,12 @@ class Particle(nn.Module):
         # === Determine if camera or object tracking === #
         self.cam_tracking = configs['cam_tracking'] 
         if self.cam_tracking: 
-            assert self.num_objects == 1, "Camera tracking can only support one hidden object"           
-        
+            assert self.num_objects == 1, "Camera tracking can only support one hidden object"  
+            assert obj_z is not None, "Object depth must be provided for camera tracking"
+            self.obj_z = obj_z
+        if not self.cam_tracking and obj_z is not None:
+            warnings.warn("Provided object depth not used for object tracking.")
+
         # === Particle parameters === #
         self.num_particles = particle_configs['num_particles']
         self.vol_size = particle_configs['vol_size'] # initialized region size
@@ -58,6 +63,10 @@ class Particle(nn.Module):
             if not TRAIN_Y:
                 self.particles[:, 3*i+1] = Y_VAL
                 self.velocity[:, 3*i+1] = 0
+
+            if self.cam_tracking:
+                self.particles[:, 3*i+2] = self.obj_z
+                self.velocity[:, 3*i+2] = 0
 
         # === Forward pass parameters === #
         self.batch_size = particle_configs['batch_size']

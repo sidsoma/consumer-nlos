@@ -9,7 +9,7 @@ from train.model import ParticleModel
 from train.optim import particle_optimization
 
 # === Functions for visualization === #
-from utils import convert_pngs_to_video, convert_particles_to_image, load_yaml
+from utils import convert_pngs_to_video, plot_cam_localization, load_yaml
 
 # === Standard libraries === #
 import numpy as np
@@ -24,10 +24,11 @@ warnings.filterwarnings('ignore')
 start_time = time.time()
 
 
-configs = load_yaml('config.yaml')
+configs = load_yaml('configs/cam_localization.yaml')
 device = 'cpu' 
-cam_pos = [0, 0, 0.82] # depth of camera from wall pre-calibrated (used only for visualization)
 
+# camera localization parameters
+obj_pos = [0, 0, 0.6] # used for particle filtering and visualization
 
 # === Configure logger === #
 log_dir = os.path.join('results', configs['capture_name'])
@@ -35,7 +36,6 @@ if not os.path.exists('results'):
     os.mkdir('results')
 if not os.path.exists(log_dir):
     os.mkdir(log_dir)
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,9 +53,14 @@ file_handler.setLevel(logging.INFO)
 logger.addHandler(file_handler)     
 
 # === Load histogram and point cloud data === #
-#SWAP WITH YOUR OWN HISTOGRAM AND POINT CLOUD DATA #
+# SWAP WITH YOUR OWN HISTOGRAM AND POINT CLOUD DATA #
 # note: we assume that the histogram has already been processed to crop out the 1-bounce light.
-hists, pt_clouds = load_data(os.path.join(configs['data_dir'], configs['capture_name'])) # Lists of length num_frames, each entry containing (n_y, n_x, num_bins) array
+# note: we also assume that point cloud is calibrated to be at z = 0. if your point cloud is not
+# aligned, run calibrate_point_cloud in data/process.py
+hists, pt_clouds, cam_z = load_data(
+                        os.path.join(configs['data_dir'], configs['capture_name']), 
+                        cam_track=configs['cam_tracking']
+                    ) # Lists of length num_frames, each entry containing (n_y, n_x, num_bins) array
 
 # compute the LCT of the histograms
 hists_lct = compute_lct(hists, isDiffuse=configs['isDiffuse'], num_lct_bins=configs['num_lct_bins'])
@@ -87,7 +92,7 @@ data_loader = create_data_loader(hists=hists_filter,
                                  shuffle=False)
 
 # === Instantiate particle motion reprepresentation === #
-motion_rep = Particle(configs, len(canon_reps), device)
+motion_rep = Particle(configs, len(canon_reps), device, obj_z=obj_pos[2])
 
 # === Create particle filter model === #
 model = ParticleModel(configs, canon_reps, motion_rep)
@@ -103,6 +108,9 @@ particle_optimization(
 # === Save particles and scores === #
 states = model.particles.states
 states = [state.cpu().numpy() for state in states]
+if configs['cam_tracking']:
+    for i in range(len(states)):
+        states[i][:, 2] = cam_z[i]
 
 scores = model.particles.scores
 scores = [score.cpu().numpy() for score in scores]
@@ -115,7 +123,6 @@ save_dict = {
     'vol_center': vol_center,
     'vol_size': vol_size,
     'pt_clouds': pt_clouds,
-    'cam_pos': cam_pos         
 }
 
 torch.save(save_dict, os.path.join(log_dir, 'particles.pth'))
@@ -123,13 +130,13 @@ torch.save(save_dict, os.path.join(log_dir, 'particles.pth'))
 print(f"Particles saved to {log_dir}")
 
 # === Convert particles to video === #
-imgs = convert_particles_to_image(particles=states, cam_pos=cam_pos, pt_clouds=pt_clouds[0].reshape(-1, 3))
+imgs = plot_cam_localization(particles=states, obj_pos=obj_pos, pt_clouds=pt_clouds[0].reshape(-1, 3))
 
 print(f"{len(imgs)} frames generated")
 
 convert_pngs_to_video(out_dir=log_dir,
                       imgs=imgs,
-                      fps=14.0)
+                      fps=12.8)
 
 print(f"Video saved to {log_dir}")
 

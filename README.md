@@ -32,7 +32,6 @@ or
 python cam_localization.py
 ```
 
-
 The outputs of this algorithms will be stored in `/results/`. 
 
 

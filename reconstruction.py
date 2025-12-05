@@ -1,34 +1,35 @@
-from rec.backprojection import backprojection
-from rec.visualizations import plot_hist_images, plot_point_clouds
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 from glob import glob
 from tqdm import tqdm
+from utils import backprojection, load_yaml
 
-t0 = 13
-bin_width = 88E-12
+configs = load_yaml('configs/reconstruction.yaml')
 
-gates = [30, 90]
-
+data_dir = configs['data_dir']
+capture_name = configs['capture_name']
+t0 = configs['t0']
+bin_width = configs['bin_width']
+gates = configs['gates']
 
 # === Load data === #
-data_dir = 'captured_data/ams_U_reconstruction'
-log_dir = 'results/reconstruction'
+log_dir = f'results/{capture_name}'
 
 os.makedirs(log_dir, exist_ok=True)
 
 hists = []; pt_clouds = []
-num_hists = len(glob(os.path.join(data_dir, '*.npy'))) - 1
+num_hists = len(glob(os.path.join(data_dir, capture_name, '*.npy'))) - 1
 for i in range(num_hists):
     filename = f'iter_{i+1}.npy'  
-    data = np.load(os.path.join(data_dir, filename), allow_pickle=True).item()
+    data = np.load(os.path.join(data_dir, capture_name, filename), allow_pickle=True).item()
 
-    hist = data['histogram'].reshape(-1, 128)
-    pt_cloud = data['point_cloud']
+    hist = data['histogram'].reshape(-1, configs['num_bins']) # (num_pixels, num_bins)
+    pt_cloud = data['point_cloud'] # (num_pixels, 3)
 
     # === Compute point cloud based on ray direction and tof === #
     ray_dirs = pt_cloud / np.linalg.norm(pt_cloud, axis=-1, keepdims=True)
+    
     tof = (np.argmax(hist, axis=-1) - t0) * bin_width
     distance_along_ray = 3E8 * tof / 2 # (N, )
     pt_cloud = ray_dirs * distance_along_ray.reshape(-1, 1)
@@ -92,9 +93,6 @@ for i in range(len(pt_clouds)):
     pt_cloud_bp = pt_clouds[i] + cam_position[i, :].reshape(1, 3)
     pt_clouds_bp.append(pt_cloud_bp)
 
-plot_hist_images(hists_bp , log_dir, norm='linear', lct=False)
-plot_point_clouds(pt_clouds_bp, log_dir, 'point_clouds', f'point_clouds')
-
 # === Define voxel grid === #
 def create_voxel_grid(xlim, ylim, zlim, num_x, num_y, num_z):
     x = np.linspace(*xlim, num_x)
@@ -105,14 +103,12 @@ def create_voxel_grid(xlim, ylim, zlim, num_x, num_y, num_z):
                     Y.reshape(-1, ), 
                     Z.reshape(-1, )]).T
 
-xlim = [0, 1]
-ylim = [0.3, 1.3]
-# zlim = [-1.5, -0.55]
-zlim = [-0.5, -0.2]
-
-num_x = 40
-num_y = 40
-num_z = 20
+xlim = configs['xlim']
+ylim = configs['ylim']
+zlim = configs['zlim']
+num_x = configs['num_x']
+num_y = configs['num_y']
+num_z = configs['num_z']
 
 voxel_params = [num_x, num_y, num_z]
 voxel_grid = create_voxel_grid(xlim, ylim, zlim, num_x, num_y, num_z)
@@ -128,24 +124,8 @@ bp_params = {
 
 vol = backprojection(**bp_params, return_indiv=False)
 
-# phasor_reconst = []
-# for hist, pt_cloud in tqdm(zip(hists_bp, pt_clouds_bp), desc="Computing phasor baseline", total=len(hists_bp)):
-#     reconst = phasor_nlos(
-#         hists=hist, 
-#         pt_clouds=pt_cloud, 
-#         bin_width=bin_width, 
-#         voxel_grid=voxel_grid,
-#         low_cutoff_Hz=10*(1/bin_width) / 104,
-#         # high_cutoff_Hz= 12 * (1/bin_width) / 104,
-#         eps=0.0,
-#     )
-#     phasor_reconst.append(reconst)
-
-# vol = sum(phasor_reconst)
-# vol = vol.reshape(num_x, num_y, num_z, order="C")
-
 # === Plot backprojection === #
-gamma = 2.3
+gamma = configs['gamma']
 
 # note: axes pointed so x is left, right is up, z is away from wall
 plt.figure(figsize=(15, 5))
@@ -193,20 +173,6 @@ plt.subplots_adjust(wspace=0.5)
 
 plt.savefig(os.path.join(log_dir, f'backprojection.png'))
 plt.close()
-
-
-# # === Plot z slices of backprojection === #
-# num_cols = 5
-# num_rows = np.ceil(num_z / num_cols).astype(int)
-# plt.figure(figsize=(15, 5))
-# for i in range(num_z):
-#     plt.subplot(num_rows, num_cols, i+1)
-#     plt.imshow(np.flip(vol[i, :, :], axis=(0, )), cmap='hot', aspect='auto', extent=[xlim[0], xlim[1], ylim[0], ylim[1]])
-#     plt.xlabel('X (m)')
-#     plt.ylabel('Y (m)')
-#     plt.gca().set_aspect('equal', adjustable='box')
-#     plt.gca().invert_xaxis()
-# plt.savefig(os.path.join(log_dir, f'z_slices.png'))
 
 # === Save volume === #
 save_dict = {

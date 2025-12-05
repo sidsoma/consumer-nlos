@@ -12,6 +12,8 @@ from functools import reduce
 import operator
 # import seaborn as sns
 
+SPEED_OF_LIGHT = 3E8
+
 def run_function(func_name, kwargs, module_name=None):
     if module_name:
         module = importlib.import_module(module_name)
@@ -403,3 +405,100 @@ def plot_cam_localization(particles : List[np.array], obj_pos : np.array, pt_clo
         plt.close()
 
     return imgs
+
+
+def backprojection(pt_clouds : list, 
+                   hists : list, 
+                   voxel_grid : np.array, 
+                   gates : list,
+                   bin_width : float, 
+                   voxel_params : list,
+                   thresh: float = np.nan,
+                   return_indiv: bool = False,
+                   show_progress: bool = True):
+        """
+        Parameters:
+        -----------
+        pt_clouds     : List of length num_frames. Each entry contains 
+                        array (num_pixels, 3)
+        hists         : List of length num_frames. Each entry contains 
+                        array (num_pixels, num_bins)
+        voxel_grid    : Voxel locations (num_voxels, 3)
+        gates         : list containing start gate, and end gate
+        bin_width     : timing resolution in seconds
+        voxel_params  : list containing number of x, y, and z voxels
+        thresh        : threshold for backprojection
+        return_indiv  : whether to return individual frame reconstructions
+        show_progress : whether to show progress bar
+
+        Returns:
+        --------
+        volume_filter  : filtered backprojected volume (num_x, num_y, num_z)
+        """
+
+        num_pixels, num_bins = hists[0].shape
+        num_hists = len(hists)
+
+        # === Extract voxel params === #
+        num_x, num_y, num_z = voxel_params
+        num_voxels = voxel_grid.shape[0]
+
+        # === Extract other parameters === #
+        if np.isnan(thresh):
+            thresh = bin_width * SPEED_OF_LIGHT
+
+        start_gate, end_gate = gates
+
+        # === Compute backprojection by looping through pixels and time bins === #  
+        volume = np.zeros((num_voxels, 1))
+        indiv_reconst = []; max_voxels = []
+        for k in tqdm(range(num_hists), 
+                      desc="Computing backprojection", 
+                      disable=not show_progress): # loop through frames
+            cur_pt_cloud = pt_clouds[k]
+            cur_frame = np.zeros((num_voxels, 1))
+            for i, cur_pixel in enumerate(cur_pt_cloud): # loop through pixels
+                if np.isnan(cur_pixel).any():
+                    continue
+                dists = np.linalg.norm(voxel_grid - cur_pixel.reshape(1, 3), axis=1).reshape(-1, 1)
+                for j in range(start_gate, end_gate): # loop through time bins
+                    cur_radius = j * bin_width * SPEED_OF_LIGHT / 2
+                    mask = np.abs(dists - cur_radius) < thresh
+                    cur_frame += hists[k][i, j] * mask
+
+            volume += cur_frame
+
+            # === Reshape and filter current frame === #
+            cur_frame = cur_frame.reshape(num_x, num_y, num_z, order="C")
+            indiv_reconst.append(cur_frame)
+            
+        volume = volume.reshape(num_x, num_y, num_z, order="C")
+
+        # # === filtering step === #
+        volume_filter = filter_volume(volume, num_x, num_y)
+
+        if return_indiv:
+            return volume_filter, indiv_reconst
+        else:
+             return volume_filter
+            
+
+def filter_volume(volume: np.array, num_x: int, num_y: int) -> np.array:
+        """
+        Compute Laplacian operator along z direction.
+
+        Parameters:
+        -----------
+        volume : 3D volume to be filtered (num_x, num_y, num_z)
+        num_x  : number of x voxels
+        num_y  : number of y voxels
+
+        Returns:
+        --------
+        volume : filtered volume with zero pad at edges
+
+        """
+        volume_unpadded = 2 * volume[:, :, 1:-1] - volume[:, :, :-2] - volume[:, :, 2:]
+        zero_pad = np.zeros((num_x, num_y, 1))
+        volume_padded = np.concatenate([zero_pad, volume_unpadded, zero_pad], axis=-1)
+        return volume_padded

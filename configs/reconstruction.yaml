@@ -1,0 +1,27 @@
+
+# === Dataset directory === #
+data_dir: 'captured_data'
+capture_name: 'ams_U_reconstruction'
+
+# === Calibrated parameters for AMS sensor === #
+t0: 13 # bin corresponding to t=0
+bin_width: 88.0e-12 # timing resolution of sensor
+num_bins: 128 # number of bins in the histogram
+
+# === Reconstruction parameters === #
+gates: [30, 90] # gates to use for reconstruction
+
+# specify reconstructed voxel region
+# xlim: [0, 1] # x-axis range
+# ylim: [0.3, 1.3] # y-axis range
+# zlim: [-0.5, -0.2] # z-axis range
+
+xlim: [0.1, 1.1] # x-axis range
+ylim: [0.1, 1.1] # y-axis range
+zlim: [-0.5, -0.2] # z-axis range
+
+num_x: 40 # number of voxels in x direction
+num_y: 40 # number of voxels in y direction 
+num_z: 20 # number of voxels in z direction
+
+gamma: 3.0 # gamma value for visualization
